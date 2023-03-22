@@ -2,9 +2,13 @@
 
 This Restaurant Chatbot project allows customers to interact with a chatbot to place orders, view their order history, check current orders, and cancel orders. It is built using Node.js, Express, Socket.IO, and MongoDB.
 
+## Live Site
+[Chat Bot](https://pascholynx-restaurant-chatbot.onrender.com)
+
 ## Table of Contents
 
 - [Features](#features)
+- [Technologies Used](#technologies)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Contributing](#contributing)
@@ -18,31 +22,47 @@ This Restaurant Chatbot project allows customers to interact with a chatbot to p
 - Menu items stored in MongoDB
 - No authentication required
 
+## Technologies
+
+- Node.Js
+- Express
+- Socket.io
+- MongoDB
+- Express-session
+
+
 ## Installation
 
 To get started with the Restaurant Chatbot, follow these steps:
 
 1. Clone the repository:
 
+```console
 git clone https://github.com/pascholynx/restaurant_ChatBot.git
+```
 
 
 2. Navigate to the project directory:
 
+```console
 cd restaurant_ChatBot
+```
 
 
 3. Install the required dependencies:
 
+```console
 npm install
+```
 
 
-4. Set up your MongoDB server and update the `MONGO_URI` in `app.js` with your MongoDB connection string.
+4. Set up your MongoDB server and update the `MONGO_URL` in `db.js` with your MongoDB connection string .
 
 5. Start the server:
 
+```console
 npm start
-
+```
 
 ## Usage
 
