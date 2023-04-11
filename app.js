@@ -88,13 +88,15 @@ const handleUserMessage = async (socket, message) => {
 
 // API endpoint for fetching menu items
 app.get("/api/menu-items", async (req, res) => {
-try {
-const items = await MenuItem.find({});
-res.json(items);
-} catch (err) {
-res.status(500).json({ error: "Failed to fetch menu items" });
-}
+  try {
+    const items = await MenuItem.find({});
+    res.json(items);
+  } catch (err) {
+    console.error("Error fetching menu items:", err);
+    res.status(500).json({ error: "Failed to fetch menu items" });
+  }
 });
+
 
 // Socket.IO events
 io.on("connection", (socket) => {
