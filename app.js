@@ -23,6 +23,8 @@ const getMenuItems = async () => {
   }
 };
 
+
+
 const handleUserMessage = async (socket, message) => {
   const option = parseInt(message);
 
@@ -54,14 +56,23 @@ const handleUserMessage = async (socket, message) => {
         socket.emit("chatbotMessage", "Order placed. To place a new order, select 1.");
       }
       break;
-    case 98:
-      const orderHistory = await OrderHistory.find({}).sort({ createdAt: -1 }).limit(10);
-      const formattedOrderHistory = orderHistory.map(order => {
-        const items = order.items.map(item => `${item.name} - $${item.price}`).join(", ");
-        return `Order placed on ${order.createdAt.toLocaleString()}: ${items}`;
-      }).join("\n");
-      socket.emit("chatbotMessage", `Order history:\n${formattedOrderHistory}\n`);
-      break;
+      case 98:
+        try {
+          const orderHistory = await OrderHistory.find({}).sort({ createdAt: -1 }).limit(10);
+          if (orderHistory.length === 0) {
+            socket.emit("chatbotMessage", "No order history. To place a new order, select 1.");
+          } else {
+            const formattedOrderHistory = orderHistory.map(order => {
+              const items = order.items.map(item => `${item.name} - $${item.price}`).join(", ");
+              return `Order placed on ${order.createdAt.toLocaleString()}: ${items}`;
+            }).join("\n");
+            socket.emit("chatbotMessage", `Order history:\n${formattedOrderHistory}\n`);
+          }
+        } catch (err) {
+          console.error("Error fetching order history:", err);
+          socket.emit("chatbotMessage", "Failed to fetch order history.");
+        }
+        break;      
     case 97:
       const currentOrderItems = currentOrder[userId].map(item => `${item.name} - $${item.price}`).join(", ");
       socket.emit("chatbotMessage", `Current order:\n${currentOrderItems}\n`);
