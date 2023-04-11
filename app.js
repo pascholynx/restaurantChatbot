@@ -12,6 +12,7 @@ const PORT = 3000;
 //Connect to MongoDB
 db.connectToMongoDB();
 
+const currentOrder = {};
 
 const getMenuItems = async () => {
   try {
