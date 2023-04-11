@@ -1,16 +1,39 @@
 const express = require("express");
 const app = express();
-const http = require("http").createServer(app);
+const http = require("http").createServer(app, {
+  // Pass the session middleware to the Socket.IO handshake process
+  prepareRequest: (req, done) => {
+    session(req, {}, done);
+  },
+});
 const io = require("socket.io")(http);
 const db = require("./db");
 const MenuItem = require("./models/model");
 const OrderHistory = require("./models/model");
 
+const session = require("express-session");
+const MongoStore = require("connect-mongo");
 
 const PORT = 3000;
 
-//Connect to MongoDB
+// Connect to MongoDB
 db.connectToMongoDB();
+
+// Add session middleware
+app.use(
+  session({
+    secret: "your-session-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI,
+      ttl: 24 * 60 * 60, // Time to live: 1 day (in seconds)
+    }),
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 1 day (in milliseconds)
+    },
+  })
+);
 
 const currentOrder = {};
 
@@ -34,8 +57,10 @@ const handleUserMessage = async (socket, message) => {
   }
 
   const userId = socket.id;
-  if (!currentOrder[userId]) {
-    currentOrder[userId] = [];
+  const session = socket.request.session;
+
+  if (!session.currentOrder) {
+    session.currentOrder = [];
   }
 
   switch (option) {
@@ -44,57 +69,63 @@ const handleUserMessage = async (socket, message) => {
       socket.emit("chatbotMessage", `Here's our menu:\n${menuItems}\n\nSelect an item number to place an order.`);
       break;
     case 99:
-      if (currentOrder[userId].length === 0) {
+      if (session.currentOrder.length === 0) {
         socket.emit("chatbotMessage", "No order to place. To place a new order, select 1.");
       } else {
         const newOrder = new OrderHistory({
-          items: currentOrder[userId],
+          items: session.currentOrder,
           createdAt: new Date(),
         });
         await newOrder.save();
-        currentOrder[userId] = [];
+        session.currentOrder = [];
         socket.emit("chatbotMessage", "Order placed. To place a new order, select 1.");
       }
       break;
-      case 98:
-        try {
-          const orderHistory = await OrderHistory.find({}).sort({ createdAt: -1 }).limit(10);
-          if (orderHistory.length === 0) {
-            socket.emit("chatbotMessage", "No order history. To place a new order, select 1.");
-          } else {
-            const formattedOrderHistory = orderHistory.map(order => {
-              const items = order.items.map(item => `${item.name} - $${item.price}`).join(", ");
-              return `Order placed on ${order.createdAt.toLocaleString()}: ${items}`;
-            }).join("\n");
-            socket.emit("chatbotMessage", `Order history:\n${formattedOrderHistory}\n`);
-          }
-        } catch (err) {
-          console.error("Error fetching order history:", err);
-          socket.emit("chatbotMessage", "Failed to fetch order history.");
+    case 98:
+      try {
+        const orderHistory = await OrderHistory.find({}).sort({ createdAt: -1 }).limit(10);
+        if (orderHistory.length === 0) {
+          socket.emit("chatbotMessage", "No order history.");
+        } else {
+          const formattedOrderHistory = orderHistory.map(order => {
+            const items = order.items.map(item => `${item.name} - $${item.price}`).join(", ");
+            return `Order placed on ${order.createdAt.toLocaleString()}: ${items}`;
+          }).join("\n");
+          socket.emit("chatbotMessage", `Order history:\n${formattedOrderHistory}\n`);
         }
-        break;      
+      } catch (err) {
+        console.error("Error fetching order history:", err);
+        socket.emit("chatbotMessage", "Failed to fetch order history.");
+      }
+      break;
     case 97:
-      const currentOrderItems = currentOrder[userId].map(item => `${item.name} - $${item.price}`).join(", ");
+      const currentOrderItems = session.currentOrder.map(item => `${item.name} - $${item.price}`).join(", ");
       socket.emit("chatbotMessage", `Current order:\n${currentOrderItems}\n`);
       break;
     case 0:
-      if (currentOrder[userId].length === 0) {
+      if (session.currentOrder.length === 0) {
         socket.emit("chatbotMessage", "No order to cancel. To place a new order, select 1.");
       } else {
-        currentOrder[userId] = [];
+        session.currentOrder = [];
         socket.emit("chatbotMessage", "Order canceled. To place a new order, select 1.");
       }
       break;
     default:
       const selectedItem = await MenuItem.findOne({ id: option });
       if (selectedItem) {
-        currentOrder[userId].push(selectedItem);
+        // Add an item to the current order
+        session.currentOrder.push(selectedItem);
+        session.save((err) => {
+          if (err) console.error("Error saving session:", err);
+        });
         socket.emit("chatbotMessage", `${selectedItem.name} added to your order. Select another item number or choose from the main menu.`);
       } else {
         socket.emit("chatbotMessage", "Invalid option. Please select a valid number.");
-      }
+    }
   }
 };
+
+
 
 
 // API endpoint for fetching menu items
@@ -108,10 +139,26 @@ app.get("/api/menu-items", async (req, res) => {
   }
 });
 
+app.use(
+  session({
+    secret: "your-session-secret",
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI,
+      ttl: 24 * 60 * 60, // Time to live: 1 day (in seconds)
+    }),
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 1 day (in milliseconds)
+    },
+  })
+);
 
 // Socket.IO events
 io.on("connection", (socket) => {
 console.log("User connected:", socket.id);
+
+socket.request.session = socket.handshake.session;
 
 socket.emit("chatbotMessage", "Welcome! Please select an option:\n1. Place an order\n99. Checkout order\n98. See order history\n97. See current order\n0. Cancel order");
 
