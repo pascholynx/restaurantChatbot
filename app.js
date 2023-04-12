@@ -1,3 +1,4 @@
+const fs = require("fs");
 const express = require("express");
 const app = express();
 const http = require("http").createServer(app, {
@@ -37,6 +38,19 @@ app.use(
 
 const currentOrder = {};
 
+const getMenuItemsFromFile = async () => {
+  return new Promise((resolve, reject) => {
+    fs.readFile("menu-items.json", "utf8", (err, data) => {
+      if (err) {
+        reject(err);
+      } else {
+        const items = JSON.parse(data);
+        resolve(items);
+      }
+    });
+  });
+};
+
 const getMenuItems = async () => {
   try {
     const items = await MenuItem.find({});
@@ -65,7 +79,7 @@ const handleUserMessage = async (socket, message) => {
 
   switch (option) {
     case 1:
-      const menuItems = await getMenuItems();
+      const menuItems = await getMenuItemsFromFile();
       socket.emit("chatbotMessage", `Here's our menu:\n${menuItems}\n\nSelect an item number to place an order.`);
       break;
     case 99:
